@@ -1,0 +1,168 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(STUDENT)
+  studentId     String?   @unique
+  department    String?
+  year          Int?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  campaigns  Campaign[]
+  donations  Donation[]
+  comments   Comment[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  color       String     @default("#3B82F6")
+  icon        String?
+  createdAt   DateTime   @default(now())
+  campaigns   Campaign[]
+}
+
+model Campaign {
+  id              String          @id @default(cuid())
+  title           String
+  description     String
+  shortDescription String?
+  goalAmount      Float
+  currentAmount   Float           @default(0)
+  status          CampaignStatus  @default(DRAFT)
+  categoryId      String
+  creatorId       String
+  images          String          @default("")
+  endDate         DateTime?
+  featured        Boolean         @default(false)
+  urgency         UrgencyLevel    @default(MEDIUM)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  approvedAt      DateTime?
+  approvedBy      String?
+
+  category  Category   @relation(fields: [categoryId], references: [id])
+  creator   User       @relation(fields: [creatorId], references: [id])
+  donations Donation[]
+  comments  Comment[]
+
+  @@index([status])
+  @@index([featured])
+  @@index([categoryId])
+}
+
+model Donation {
+  id               String        @id @default(cuid())
+  amount           Float
+  message          String?
+  anonymous        Boolean       @default(false)
+  stripePaymentId  String?       @unique
+  status           PaymentStatus @default(PENDING)
+  campaignId       String
+  donorId          String
+  createdAt        DateTime      @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  donor    User     @relation(fields: [donorId], references: [id])
+
+  @@index([campaignId])
+  @@index([donorId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String
+  campaignId String
+  authorId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id])
+
+  @@index([campaignId])
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum CampaignStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
